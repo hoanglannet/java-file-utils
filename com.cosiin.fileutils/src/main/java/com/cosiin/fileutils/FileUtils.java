@@ -1,14 +1,19 @@
 package com.cosiin.fileutils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import javax.activation.MimetypesFileTypeMap;
+
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 
 /**
@@ -94,5 +99,71 @@ public class FileUtils {
         zipOutputStream.closeEntry();
         zipOutputStream.close();
         fileOutputStream.close();
+	}
+	
+	/**
+	 * Save file from base 64 content
+	 * @param fileDir
+	 * @param fileName 
+	 * @param based64Content 
+	 * @throws IOException 
+	 */
+	public static void saveFile(String fileDir, String fileName,
+			String based64Content) throws Exception {
+		File destDir = new File(fileDir);
+		if (!destDir.exists()) {
+			destDir.mkdir();
+		}
+		String filePath = fileDir + fileName;
+		File file = new File(filePath);
+		byte dearr[] = Base64.decodeBase64(based64Content.getBytes());
+		FileOutputStream fos = new FileOutputStream(file);
+		fos.write(dearr);
+		fos.flush();
+		fos.close();
+	}
+	
+	/**
+	 * Get base 64 data of file 
+	 * @param filePath
+	 * @return
+	 * @throws Exception
+	 */
+	public static String getFileDataBased64(String filePath) throws Exception {
+		int data;
+		File file = new File(filePath);
+		FileReader fr = new FileReader(file);
+		ByteArrayOutputStream bf = new ByteArrayOutputStream();
+		while ((data = fr.read()) != -1) {
+			bf.write(data);
+		}
+		byte content[] = Base64.encodeBase64(bf.toByteArray());
+		String ret = new String(content);
+		bf.close();
+		fr.close();
+		return ret;
+	}
+	
+	public static List<FileItem> extractZipToListFiles(String zipFileName, String toFolder) throws Exception {
+		File zipFile = new File(zipFileName);
+		List<FileItem> ret = new ArrayList<FileItem>();
+		String zipFileBase64 = getFileDataBased64(zipFileName);
+		saveFile(toFolder, zipFile.getName(), zipFileBase64);
+		extract(zipFileName, toFolder);
+		
+		List<String> listFiles = listFiles(toFolder);
+		for (String filePath : listFiles) {
+			if (!filePath.equalsIgnoreCase(zipFileName)) {
+				File file = new File(filePath);
+				FileItem fileItem = new FileItem();
+				fileItem.setFileName(file.getCanonicalPath());
+				fileItem.setBase64Content(getFileDataBased64(filePath));
+				fileItem.setMimeType(new MimetypesFileTypeMap().getContentType(file));
+				
+				ret.add(fileItem);
+			}
+		}
+		
+		return ret;
 	}
 }
